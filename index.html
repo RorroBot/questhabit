@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuestHabit - Gamified Habit Tracker</title>
+
+  <!-- PWA & Mobile Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="QuestHabit">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+      50% { box-shadow: 0 0 25px rgba(59, 130, 246, 0.8); }
+    }
+    .glow-effect {
+      animation: pulse-glow 3s infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+  <!-- Main Container -->
+  <div class="max-w-md mx-auto w-full p-4 pb-24">
+    
+    <!-- Top Bar & Install Prompt -->
+    <div id="install-banner" class="hidden mb-4 bg-indigo-900/40 border border-indigo-500/50 rounded-xl p-3 flex justify-between items-center backdrop-blur">
+      <div class="text-xs text-indigo-200">
+        <span class="font-bold">Add to Home Screen</span> for the full app experience!
+      </div>
+      <button id="install-btn" class="bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-semibold py-1.5 px-3 rounded-lg transition">
+        Install
+      </button>
+    </div>
+
+    <!-- App Header / Stats Panel -->
+    <header class="bg-slate-800/80 border border-slate-700/60 backdrop-blur rounded-2xl p-5 mb-6 shadow-xl relative overflow-hidden">
+      <!-- Background accent -->
+      <div class="absolute -right-8 -top-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+      <!-- Top Row: Level & Streak -->
+      <div class="flex justify-between items-center mb-4">
+        <div class="flex items-center gap-2">
+          <span id="level-badge" class="bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+            Lv. 1 Adventurer
+          </span>
+        </div>
+        <div class="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full text-amber-400 font-bold text-sm">
+          <span>🔥</span>
+          <span id="streak-count">0</span>
+          <span class="text-xs font-normal text-amber-300/70">Days</span>
+        </div>
+      </div>
+
+      <!-- XP Bar / Goal Progress -->
+      <div>
+        <div class="flex justify-between items-baseline mb-1.5">
+          <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Daily Quest Target</span>
+          <span class="text-sm font-extrabold text-indigo-400">
+            <span id="current-xp">0</span> / <span id="goal-xp">100</span> XP
+          </span>
+        </div>
+        <div class="w-full bg-slate-700/60 rounded-full h-3 overflow-hidden p-0.5 border border-slate-600/50">
+          <div id="xp-bar" class="bg-gradient-to-r from-indigo-500 to-blue-400 h-full rounded-full transition-all duration-500 w-0"></div>
+        </div>
+        <p id="goal-status" class="text-xs text-slate-400 mt-2 text-right italic">Keep going! You're almost there.</p>
+      </div>
+    </header>
+
+    <!-- Quests Section -->
+    <main>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold tracking-tight text-slate-200">Today's Quests</h2>
+        <button id="open-modal-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1 transition shadow-lg shadow-indigo-600/20">
+          <span>+</span> New Quest
+        </button>
+      </div>
+
+      <!-- Task List Container -->
+      <div id="quest-list" class="space-y-6">
+        <!-- Rendered via JS -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Add Quest Modal -->
+  <div id="quest-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+      <h3 class="text-lg font-bold text-white mb-4">Create New Quest</h3>
+      <form id="quest-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Quest Title</label>
+          <input type="text" id="quest-title" required placeholder="e.g., Read 15 pages" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Category</label>
+          <select id="quest-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+            <option value="Mind & Growth">🧠 Mind & Growth</option>
+            <option value="Health & Body">💪 Health & Body</option>
+            <option value="Productivity">⚡ Productivity</option>
+            <option value="Mindfulness">🌿 Mindfulness</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">XP Reward</label>
+          <select id="quest-xp" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+            <option value="10">10 XP (Easy / Micro-habit)</option>
+            <option value="25" selected>25 XP (Medium / Standard)</option>
+            <option value="50">50 XP (Hard / Deep Focus)</option>
+          </select>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button type="button" id="close-modal-btn" class="w-1/2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-semibold py-2 rounded-lg transition">Cancel</button>
+          <button type="submit" class="w-1/2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold py-2 rounded-lg transition">Add Quest</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- App Script -->
+  <script>
+    // Initial State
+    const defaultQuests = [
+      { id: '1', title: 'Morning stretch & movement', category: 'Health & Body', xp: 10, completed: false },
+      { id: '2', title: 'Drink 2L of water', category: 'Health & Body', xp: 10, completed: false },
+      { id: '3', title: 'Read 15 pages of a book', category: 'Mind & Growth', xp: 25, completed: false },
+      { id: '4', title: 'Complete deep work session', category: 'Productivity', xp: 50, completed: false },
+      { id: '5', title: '10 mins evening meditation', category: 'Mindfulness', xp: 15, completed: false }
+    ];
+
+    let state = JSON.parse(localStorage.getItem('questhabit_state')) || {
+      quests: defaultQuests,
+      dailyGoal: 100,
+      currentXP: 0,
+      streak: 0,
+      level: 1,
+      totalXP: 0,
+      goalReachedToday: false,
+      lastActiveDate: new Date().toDateString()
+    };
+
+    // Category Color Mapping
+    const categoryStyles = {
+      'Mind & Growth': { border: 'border-blue-500/30', bg: 'bg-blue-500/10', text: 'text-blue-400' },
+      'Health & Body': { border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
+      'Productivity': { border: 'border-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400' },
+      'Mindfulness': { border: 'border-purple-500/30', bg: 'bg-purple-500/10', text: 'text-purple-400' }
+    };
+
+    // Check Midnight Reset
+    function checkDateReset() {
+      const today = new Date().toDateString();
+      if (state.lastActiveDate !== today) {
+        if (!state.goalReachedToday && state.streak > 0) {
+          state.streak = 0; // Streak broken if daily goal was missed
+        }
+        state.currentXP = 0;
+        state.goalReachedToday = false;
+        state.quests.forEach(q => q.completed = false);
+        state.lastActiveDate = today;
+        saveState();
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem('questhabit_state', JSON.stringify(state));
+    }
+
+    // Sound FX & Haptics
+    function playAudioTone(freq, type = 'sine') {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      } catch (e) {}
+    }
+
+    function triggerHaptic() {
+      if ('vibrate' in navigator) {
+        navigator.vibrate(40);
+      }
+    }
+
+    // UI Updates
+    function updateHeaderUI() {
+      document.getElementById('current-xp').textContent = state.currentXP;
+      document.getElementById('goal-xp').textContent = state.dailyGoal;
+      document.getElementById('streak-count').textContent = state.streak;
+      document.getElementById('level-badge').textContent = `Lv. ${Math.floor(state.totalXP / 200) + 1} Adventurer`;
+
+      const progressPct = Math.min((state.currentXP / state.dailyGoal) * 100, 100);
+      document.getElementById('xp-bar').style.width = `${progressPct}%`;
+
+      const statusEl = document.getElementById('goal-status');
+      if (state.currentXP >= state.dailyGoal) {
+        statusEl.textContent = '🎉 Daily Goal Complete! Streak Secured.';
+        statusEl.className = 'text-xs text-emerald-400 font-bold mt-2 text-right';
+      } else {
+        statusEl.textContent = `${state.dailyGoal - state.currentXP} XP left to reach daily goal`;
+        statusEl.className = 'text-xs text-slate-400 mt-2 text-right italic';
+      }
+    }
+
+    function renderQuests() {
+      const container = document.getElementById('quest-list');
+      container.innerHTML = '';
+
+      const grouped = state.quests.reduce((acc, q) => {
+        acc[q.category] = acc[q.category] || [];
+        acc[q.category].push(q);
+        return acc;
+      }, {});
+
+      for (const [cat, quests] of Object.entries(grouped)) {
+        const style = categoryStyles[cat] || { border: 'border-slate-700', bg: 'bg-slate-800', text: 'text-slate-300' };
+
+        const groupEl = document.createElement('div');
+        groupEl.className = 'space-y-2';
+
+        groupEl.innerHTML = `
+          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${style.text} px-1">
+            <span>${cat}</span>
+          </div>
+          <div class="space-y-2">
+            ${quests.map(q => `
+              <div data-id="${q.id}" class="quest-item bg-slate-800/60 border ${q.completed ? 'border-slate-800 opacity-60' : 'border-slate-700/70'} hover:border-slate-600 rounded-xl p-3.5 flex items-center justify-between transition cursor-pointer select-none">
+                <div class="flex items-center gap-3">
+                  <div class="w-6 h-6 rounded-lg border ${q.completed ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-slate-600 bg-slate-900'} flex items-center justify-center text-xs font-bold transition">
+                    ${q.completed ? '✓' : ''}
+                  </div>
+                  <span class="text-sm ${q.completed ? 'line-through text-slate-400' : 'text-slate-200'} font-medium">
+                    ${q.title}
+                  </span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold px-2 py-0.5 rounded ${style.bg} ${style.text}">
+                    +${q.xp} XP
+                  </span>
+                  <button data-delete="${q.id}" class="text-slate-500 hover:text-red-400 text-xs px-1 opacity-0 hover:opacity-100 transition">✕</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        container.appendChild(groupEl);
+      }
+
+      // Attach Handlers
+      document.querySelectorAll('.quest-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+          if (e.target.dataset.delete) return;
+          toggleQuest(el.dataset.id);
+        });
+      });
+
+      document.querySelectorAll('[data-delete]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteQuest(btn.dataset.delete);
+        });
+      });
+    }
+
+    function toggleQuest(id) {
+      const quest = state.quests.find(q => q.id === id);
+      if (!quest) return;
+
+      quest.completed = !quest.completed;
+
+      if (quest.completed) {
+        state.currentXP += quest.xp;
+        state.totalXP += quest.xp;
+        playAudioTone(587.33); // D5 note sound feedback
+        triggerHaptic();
+
+        // Check Daily Goal trigger
+        if (!state.goalReachedToday && state.currentXP >= state.dailyGoal) {
+          state.goalReachedToday = true;
+          state.streak += 1;
+          setTimeout(() => {
+            playAudioTone(880, 'triangle');
+            if (window.confetti) {
+              confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            }
+          }, 150);
+        }
+      } else {
+        state.currentXP = Math.max(0, state.currentXP - quest.xp);
+        state.totalXP = Math.max(0, state.totalXP - quest.xp);
+      }
+
+      saveState();
+      updateHeaderUI();
+      renderQuests();
+    }
+
+    function deleteQuest(id) {
+      state.quests = state.quests.filter(q => q.id !== id);
+      saveState();
+      renderQuests();
+    }
+
+    // Modal Logic
+    const modal = document.getElementById('quest-modal');
+    document.getElementById('open-modal-btn').onclick = () => modal.classList.remove('hidden');
+    document.getElementById('close-modal-btn').onclick = () => modal.classList.add('hidden');
+
+    document.getElementById('quest-form').onsubmit = (e) => {
+      e.preventDefault();
+      const title = document.getElementById('quest-title').value;
+      const category = document.getElementById('quest-category').value;
+      const xp = parseInt(document.getElementById('quest-xp').value);
+
+      state.quests.push({
+        id: Date.now().toString(),
+        title,
+        category,
+        xp,
+        completed: false
+      });
+
+      saveState();
+      renderQuests();
+      modal.classList.add('hidden');
+      document.getElementById('quest-form').reset();
+    };
+
+    // PWA Install Prompt Capture
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const banner = document.getElementById('install-banner');
+      banner.classList.remove('hidden');
+
+      document.getElementById('install-btn').onclick = () => {
+        banner.classList.add('hidden');
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+      };
+    });
+
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('Service Worker registered:', reg.scope))
+          .catch(err => console.error('Service Worker registration failed:', err));
+      });
+    }
+
+    // Init App
+    checkDateReset();
+    updateHeaderUI();
+    renderQuests();
+  </script>
+</body>
+</html>
